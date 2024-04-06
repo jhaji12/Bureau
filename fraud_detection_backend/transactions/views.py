@@ -1,42 +1,36 @@
 # views.py
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import JsonResponse
+from rest_framework.parsers import JSONParser
 from rest_framework import status
+from .tasks import process_csv_and_predict, create_csv_from_json
 from .models import Transaction
 from .serializers import TransactionSerializer
 
 class TransactionAPIView(APIView):
     def post(self, request):
+        # Parse JSON data from request
+        json_data = JSONParser().parse(request)
+        
         # Deserialize the incoming data using TransactionSerializer
-        serializer = TransactionSerializer(data=request.data)
+        serializer = TransactionSerializer(data=json_data)
         
         # Check if the data is valid
         if serializer.is_valid():
             # Get the deserialized data
             validated_data = serializer.validated_data
             
-            # Extract transaction attributes from validated data
-            transaction_amount = validated_data.get('transaction_amount')
-            # Extract other transaction attributes similarly
+            # Call celery task to process JSON data
+            csv_data  = create_csv_from_json.delay(validated_data)
             
-            # Apply fraud detection logic
-            if transaction_amount >= 0.7 * validated_data['card_balance'] and validated_data['card_balance'] >= 300000:
-                # If the transaction amount violates RULE-001
-                detection_result = {
-                    'status': 'ALERT',
-                    'ruleViolated': ['RULE-001'],
-                    'timestamp': '1234567890'  # Replace with actual timestamp
-                }
-            else:
-                # If no fraud detected
-                detection_result = {
-                    'status': 'OK',
-                    'ruleViolated': [],
-                    'timestamp': '1234567890'  # Replace with actual timestamp
-                }
-            
-            # Return the detection result in JSON format
-            return Response(detection_result)
+            result = process_csv_and_predict.delay(csv_data)
+
+            predictions = result.get()
+
+            # Return response indicating processing started
+            return JsonResponse({'predictions': predictions}, status=200)
         else:
             # If the data is invalid, return the validation errors
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse(serializer.errors, status=400)

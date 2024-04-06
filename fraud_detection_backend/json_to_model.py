@@ -1,6 +1,7 @@
 import os
 import django
 import json
+import datetime
 
 # Set up Django environment
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fraud_detection_backend.settings')
@@ -38,6 +39,11 @@ def populate_data():
         with open('input.json', 'r') as f:
             data = json.load(f)
             if isinstance(data, dict):  # Check if data is a dictionary
+                # Convert dateTimeTransaction to the correct format
+                date_time_transaction = datetime.datetime.strptime(data['dateTimeTransaction'], "%d%m%y%H%M%S")
+                data['dateTimeTransaction'] = date_time_transaction.strftime("%Y-%m-%d %H:%M:%S")
+
+                # Create Transaction object
                 Transaction.objects.create(**data)  # Assuming Transaction model accepts kwargs
                 print("Data populated successfully.")
             else:
