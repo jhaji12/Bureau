@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "vercel_django_server.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [{ "src": "/(.*)", "dest": "vercel_django_server.py" }]
+}
